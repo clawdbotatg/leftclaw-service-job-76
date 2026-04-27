@@ -1,83 +1,77 @@
-# 🏗 Scaffold-ETH 2
+# 🪞 CLAWD Mirror
 
-<h4 align="center">
-  <a href="https://docs.scaffoldeth.io">Documentation</a> |
-  <a href="https://scaffoldeth.io">Website</a>
-</h4>
+> Pay $0.05 in ETH or CLAWD on Base. Get a shareable wallet personality profile.
 
-🧪 An open-source, up-to-date toolkit for building decentralized applications (dapps) on the Ethereum blockchain. It's designed to make it easier for developers to create and deploy smart contracts and build user interfaces that interact with those contracts.
+CLAWD Mirror is a 2x2 wallet characterization service:
 
-> [!NOTE]
-> 🤖 Scaffold-ETH 2 is AI-ready! It has everything agents need to build on Ethereum. Check `.agents/`, `.claude/`, `.opencode` or `.cursor/` for more info.
+|         | **Read Me** (warm)     | **Roast Me** (savage)        |
+| ------- | ---------------------- | ---------------------------- |
+| CLAWD   | mode 0 — staking vibes | mode 1 — paper-hands roast   |
+| General | mode 2 — broad portrait| mode 3 — full destruction    |
 
-⚙️ Built using NextJS, RainbowKit, Foundry, Wagmi, Viem, and Typescript.
+Payment is settled on-chain via the `MirrorPayment` contract on Base mainnet.
+The frontend then polls a Vercel API route that:
 
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
+1. Verifies the on-chain `ProfileRequested` event
+2. Pulls wallet activity from Alchemy
+3. Sends the data to GPT-4o with a mode-specific system prompt
+4. Renders a 1200x675 share card with `@vercel/og`
+5. Caches the result in Vercel KV (24h TTL keyed by `${wallet}:${mode}`)
 
-![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
+## Contracts
 
-## Requirements
+| Contract        | Network | Address                                       |
+| --------------- | ------- | --------------------------------------------- |
+| `MirrorPayment` | Base    | `0xA84611277203DBe66631b5227CAd3a46a7D0934c`  |
+| `CLAWD`         | Base    | `0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07`  |
 
-Before you begin, you need to install the following tools:
+The MirrorPayment contract uses the Chainlink ETH/USD feed plus an L2 sequencer
+uptime check so the ETH price is always pegged to $0.05 USD. CLAWD price is
+owner-configurable.
 
-- [Node (>= v20.18.3)](https://nodejs.org/en/download/)
-- Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
-- [Git](https://git-scm.com/downloads)
-
-## Quickstart
-
-To get started with Scaffold-ETH 2, follow the steps below:
-
-1. Install dependencies if it was skipped in CLI:
+## Repo Layout
 
 ```
-cd my-dapp-example
+packages/
+├─ foundry/   # MirrorPayment.sol + Foundry deploy scripts
+└─ nextjs/    # Frontend + Vercel API route
+   ├─ app/page.tsx                  # Three-state UI (input → loading → result)
+   ├─ app/api/profile/route.ts      # 503 stub for static export
+   ├─ app/api/profile/pipeline.ts   # Full backend skeleton (Vercel deploy)
+   └─ contracts/                    # deployedContracts + externalContracts (CLAWD)
+```
+
+## Local Dev
+
+```bash
 yarn install
+yarn start    # next dev on :3000
 ```
 
-2. Run a local network in the first terminal:
+Set `NEXT_PUBLIC_ALCHEMY_API_KEY` in `packages/nextjs/.env.local` to avoid Alchemy
+rate limits.
 
-```
-yarn chain
-```
+## Static Export (IPFS)
 
-This command starts a local Ethereum network using Foundry. The network runs on your local machine and can be used for testing and development. You can customize the network configuration in `packages/foundry/foundry.toml`.
-
-3. On a second terminal, deploy the test contract:
-
-```
-yarn deploy
+```bash
+NEXT_PUBLIC_ALCHEMY_API_KEY=<your-key> NEXT_PUBLIC_IPFS_BUILD=true yarn build
+# Output: packages/nextjs/out/
 ```
 
-This command deploys a test smart contract to the local network. The contract is located in `packages/foundry/contracts` and can be modified to suit your needs. The `yarn deploy` command uses the deploy script located in `packages/foundry/script` to deploy the contract to the network. You can also customize the deploy script.
+The static build ships only the 503 stub for `/api/profile`. To run the full
+pipeline, deploy to Vercel and replace `route.ts` with a handler that calls
+`runPipeline` from `pipeline.ts`. Required env on Vercel:
 
-4. On a third terminal, start your NextJS app:
+- `OPENAI_API_KEY`
+- `ALCHEMY_API_KEY`
+- `KV_REST_API_URL` and `KV_REST_API_TOKEN`
 
+## Contract Verification
+
+```bash
+yarn verify --network base
 ```
-yarn start
-```
 
-Visit your app on: `http://localhost:3000`. You can interact with your smart contract using the `Debug Contracts` page. You can tweak the app config in `packages/nextjs/scaffold.config.ts`.
+## License
 
-Run smart contract test with `yarn foundry:test`
-
-- Edit your smart contracts in `packages/foundry/contracts`
-- Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
-- Edit your deployment scripts in `packages/foundry/script`
-
-
-## Documentation
-
-Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.
-
-To know more about its features, check out our [website](https://scaffoldeth.io).
-
-## Contributing to Scaffold-ETH 2
-
-We welcome contributions to Scaffold-ETH 2!
-
-Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+MIT

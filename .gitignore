@@ -21,3 +21,13 @@ node_modules
 
 # cli
 dist
+
+# bgipfs
+ipfs-upload.config.json
+
+# env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
