@@ -148,6 +148,20 @@ contract MirrorPayment is Ownable2Step, ReentrancyGuard {
         if (_clawd == address(0)) revert InvalidClawdToken();
         if (_initialQueryPriceCLAWD == 0) revert InvalidPrice();
 
+        // Smoke-test: verify feeds are responsive (reverts if address is wrong shape).
+        try AggregatorV3Interface(_priceFeed).decimals() returns (uint8) {} catch {
+            revert InvalidPriceFeed();
+        }
+        try AggregatorV3Interface(_sequencerFeed).latestRoundData() returns (
+            uint80,
+            int256,
+            uint256,
+            uint256,
+            uint80
+        ) {} catch {
+            revert InvalidSequencerFeed();
+        }
+
         priceFeed = AggregatorV3Interface(_priceFeed);
         sequencerFeed = AggregatorV3Interface(_sequencerFeed);
         clawd = IERC20(_clawd);
@@ -218,7 +232,10 @@ contract MirrorPayment is Ownable2Step, ReentrancyGuard {
         if (answer <= 0) revert InvalidPrice();
         if (answer <= MIN_ANSWER || answer >= MAX_ANSWER) revert InvalidPriceFeed();
         if (answeredInRound < roundId) revert StalePrice(updatedAt, block.timestamp);
-        if (updatedAt == 0 || block.timestamp - updatedAt > MAX_PRICE_STALENESS) {
+        if (updatedAt == 0) revert StalePrice(updatedAt, block.timestamp);
+        // Explicit guard: a future timestamp is invalid (would underflow the staleness check).
+        if (block.timestamp < updatedAt) revert InvalidPriceFeed();
+        if (block.timestamp - updatedAt > MAX_PRICE_STALENESS) {
             revert StalePrice(updatedAt, block.timestamp);
         }
 
